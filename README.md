@@ -24,25 +24,25 @@ def step(vectors, axis=-1):
 
 ### ■light-rouringアルゴリズム
 ```python
-        # 前処理として係数を1に初期化
-        # c.shape = [None, self.num_capsule, self.input_num_capsule].
-        c = tf.ones(shape=[K.shape(inputs_hat)[0], self.num_capsule, self.input_num_capsule])
+# 前処理として係数を1に初期化
+# c.shape = [None, self.num_capsule, self.input_num_capsule].
+c = tf.ones(shape=[K.shape(inputs_hat)[0], self.num_capsule, self.input_num_capsule])
 
-        assert self.routings > 0, 'The routings should be > 0.'
-        for i in range(self.routings):
-            # inputs_hat.shape=[None, num_capsule, input_num_capsule, dim_capsule]
-            # The first two dimensions as `batch` dimension,
-            # then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
-            # outputs.shape=[None, num_capsule, dim_capsule]
-            outputs = step(K.batch_dot(c, inputs_hat, [2, 2]))  # [None, 10, 16]
+assert self.routings > 0, 'The routings should be > 0.'
+for i in range(self.routings):
+    # inputs_hat.shape=[None, num_capsule, input_num_capsule, dim_capsule]
+    # The first two dimensions as `batch` dimension,
+    # then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
+    # outputs.shape=[None, num_capsule, dim_capsule]
+    outputs = step(K.batch_dot(c, inputs_hat, [2, 2]))  # [None, 10, 16]
 
-            if i < self.routings - 1:
-                # outputs.shape =  [None, num_capsule, dim_capsule]
-                # inputs_hat.shape=[None, num_capsule, input_num_capsule, dim_capsule]
-                # The first two dimensions as `batch` dimension,
-                # then matmal: [dim_capsule] x [input_num_capsule, dim_capsule]^T -> [input_num_capsule].
-                # c.shape=[batch_size, num_capsule, input_num_capsule]
-                c += K.batch_dot(outputs, inputs_hat, [2, 3])
+    if i < self.routings - 1:
+        # outputs.shape =  [None, num_capsule, dim_capsule]
+        # inputs_hat.shape=[None, num_capsule, input_num_capsule, dim_capsule]
+        # The first two dimensions as `batch` dimension,
+        # then matmal: [dim_capsule] x [input_num_capsule, dim_capsule]^T -> [input_num_capsule].
+        # c.shape=[batch_size, num_capsule, input_num_capsule]
+        c += K.batch_dot(outputs, inputs_hat, [2, 3])
 ```
 
 ## 使用方法
