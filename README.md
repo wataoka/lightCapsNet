@@ -22,7 +22,7 @@ def step(vectors, axis=-1):
     return vectors / s_squared_norm
 ```
 
-### ■light-rouringアルゴリズム
+### ■light-routingアルゴリズム
 ```python
 # 前処理として係数を1に初期化
 # c.shape = [None, self.num_capsule, self.input_num_capsule].
@@ -44,6 +44,19 @@ for i in range(self.routings):
         # c.shape=[batch_size, num_capsule, input_num_capsule]
         c += K.batch_dot(outputs, inputs_hat, [2, 3])
 ```
+
+
+## 結果
+### ■実行環境
+google colabのGPUを使用.
+
+### ■実行速度
+|変更点|時間|精度|
+|:-----|:---|:--|
+|変更なし|3分36秒|loss: 0.1284 - capsnet_loss: 0.1013 - decoder_loss: 0.0690 - capsnet_acc: 0.8994 - val_loss: 0.0445 - val_capsnet_loss: 0.0242 - val_decoder_loss: 0.0516 - val_capsnet_acc: 0.9878|
+|step関数|3分35秒|loss: 0.2779 - capsnet_loss: 0.2505 - decoder_loss: 0.0699 - capsnet_acc: 0.7014 - val_loss: 0.0679 - val_capsnet_loss: 0.0487 - val_decoder_loss: 0.0490 - val_capsnet_acc: 0.9776|
+|light-routingアルゴリズム|3分33秒|loss: 0.2068 - capsnet_loss: 0.1794 - decoder_loss: 0.0699 - capsnet_acc: 0.8095 - val_loss: 0.0542 - val_capsnet_loss: 0.0364 - val_decoder_loss: 0.0456 - val_capsnet_acc: 0.9829|
+|どちらも|3分31秒|loss: 0.2227 - capsnet_loss: 0.1949 - decoder_loss: 0.0710 - capsnet_acc: 0.7932 - val_loss: 0.1243 - val_capsnet_loss: 0.1060 - val_decoder_loss: 0.0466 - val_capsnet_acc: 0.8827|
 
 ## 使用方法
 
