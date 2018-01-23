@@ -1,23 +1,49 @@
-# カプセルネットワークをkerasで実装
-[![License](https://img.shields.io/github/license/mashape/apistatus.svg?maxAge=2592000)](https://github.com/XifengGuo/CapsNet-Keras/blob/master/LICENSE)
+# light-CapsNet
 
 ## 背景
-　2017年, ディープラーニング界にまたしても新たな技術が生み出されました. Googleの研究員,Geoffrey E. Hinton(ジェフリーヒントん)さんが発表した論文(Dynamic Routing Between Capsules)でカプセルネットワークという手法が提案されました. この手法を[Xifeng Guo](https://github.com/XifengGuo)さんがkerasで実装されていましたので, ほとんど真似しながら実装し,説明等を日本語訳しました. カプセルネットワークの理解に関しましては本ページでは扱いませんので, 本ページ末尾のリンク集を一通り読んでいただければ実装できるかと思われます.
-
+ 2017年11月に提案されたカプセルネットワークの実行速度を上げる.
 論文へのリンクは[こちら](http://papers.nips.cc/paper/6975-dynamic-routing-between-capsules.pdf)
 
- 
-## 論文と異なる点
-- `decay factor = 0.9` `step = 1 epoch`とした.
-論文では細かいパラメータまでは指定されていなかった.
-- エポック数を50とした
-論文では1250エポック
-- reconstruction loss関数にMSE(mean squared error)を使用した. and 
-論文ではEES(sum squared error)
-※reconstruction loss関数とはdecoderの出力を教師データと比較し, ロスを計算するもの.
-- `lam_recon=0.0005*784=0.392`とした.   
-論文では`lam_recon=0.0005`
 
+## 変更点
+- squash関数をベクトル版step関数に変更
+- routingアルゴリズムの変数bを削除
+
+### ■step関数
+```python
+def step(vectors, axis=-1):
+    """
+    カプセルネットワークでは非線形の活性化関数が使用される. この関数はベクトルの長さを0~1に圧縮する.
+    :param vectors: 圧出される複数のベクトル, 4次元テンソル
+    :param axis: 圧縮する軸
+    :return: 複数の入力ベクトルと同じ形の一つのテンソル
+    """
+    s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)
+    return vectors / s_squared_norm
+```
+
+### ■light-rouringアルゴリズム
+```python
+        # 前処理として係数を1に初期化
+        # c.shape = [None, self.num_capsule, self.input_num_capsule].
+        c = tf.ones(shape=[K.shape(inputs_hat)[0], self.num_capsule, self.input_num_capsule])
+
+        assert self.routings > 0, 'The routings should be > 0.'
+        for i in range(self.routings):
+            # inputs_hat.shape=[None, num_capsule, input_num_capsule, dim_capsule]
+            # The first two dimensions as `batch` dimension,
+            # then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
+            # outputs.shape=[None, num_capsule, dim_capsule]
+            outputs = step(K.batch_dot(c, inputs_hat, [2, 2]))  # [None, 10, 16]
+
+            if i < self.routings - 1:
+                # outputs.shape =  [None, num_capsule, dim_capsule]
+                # inputs_hat.shape=[None, num_capsule, input_num_capsule, dim_capsule]
+                # The first two dimensions as `batch` dimension,
+                # then matmal: [dim_capsule] x [input_num_capsule, dim_capsule]^T -> [input_num_capsule].
+                # c.shape=[batch_size, num_capsule, input_num_capsule]
+                c += K.batch_dot(outputs, inputs_hat, [2, 3])
+```
 
 ## 使用方法
 
@@ -65,72 +91,6 @@ $ python capsulenet.py -t -w result/trained_model.h5
 python capsulenet-multi-gpu.py --gpus 2
 ```
 このコマンドで自動的にGPUを用いて処理してくれます. なお,トレーニング中はaccuracyを出力しません.
-
-## 結果
-
-#### テストエラー率  
-
-平均と標準偏差は3回行った結果です.  
-この結果は下記のコマンドで出力できます.
-
- ```
- python capsulenet.py --routings 1 --lam_recon 0.0    #CapsNet-v1   
- python capsulenet.py --routings 1 --lam_recon 0.392  #CapsNet-v2
- python capsulenet.py --routings 3 --lam_recon 0.0    #CapsNet-v3 
- python capsulenet.py --routings 3 --lam_recon 0.392  #CapsNet-v4
-```
-   Method     |   Routing   |   Reconstruction  |  MNIST (%)  |  *Paper*    
-   :---------|:------:|:---:|:----:|:----:
-   Baseline |  -- | -- | --             | *0.39* 
-   CapsNet-v1 |  1 | no | 0.39 (0.024)  | *0.34 (0.032)* 
-   CapsNet-v2  |  1 | yes | 0.36 (0.009)| *0.29 (0.011)*
-   CapsNet-v3 |  3 | no | 0.40 (0.016)  | *0.35 (0.036)*
-   CapsNet-v4  |  3 | yes| 0.34 (0.016) | *0.25 (0.005)*
-   
-lossとaccuracyのグラフ:
-![](result/log.png)
-
-
-#### 学習速度
-
-|実行環境|速度|
-|:--|:--|
-|single GTX 1070 GPU|約`100s / epoch`|
-|single GTX 1080Ti GPU|約`80s / epoch`| 
-|two GTX 1080Ti GPU(`capsulenet-multi-gpu.py`を使用)|約`55s / epoch`|
-
-#### 再構成結果  
-これらはCapsNet-v4の結果です.
-```
-python capsulenet.py -t -w result/trained_model.h5
-```
-上段5つはMNISTからの生データ  
-下段5つがそれぞれに対応する再構成データ
-
-![](result/real_and_recon.png)
-
-#### Manipulate latent code
-
-```
-python capsulenet.py -t --digit 5 -w result/trained_model.h5 
-```
-それぞれの数字において, i番目の数字はi番目のカプセルに対応します.  
-左の列から順に`[-0.25, -0.2, -0.15, -0.1, -0.05, 0, 0.05, 0.1, 0.15, 0.2, 0.25]`というカプセルの次元の値となっています.
-
-それぞれの数字の特徴をしっかりとつかめているように見受けられますね.  
-同じ次元でも別の数字では異なる書き方をされていますが, これは異なる特徴ベクトル(feature vectors)またはカプセル(digit capsules)から生成されているためです.
-
-![](result/manipulate-0.png)
-![](result/manipulate-1.png)
-![](result/manipulate-2.png)
-![](result/manipulate-3.png)
-![](result/manipulate-4.png)
-![](result/manipulate-5.png)
-![](result/manipulate-6.png)
-![](result/manipulate-7.png)
-![](result/manipulate-8.png)
-![](result/manipulate-9.png)
-
 
 ## 別の手法
 
